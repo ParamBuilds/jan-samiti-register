@@ -34,19 +34,17 @@ import FormSection from "./FormSection";
 import PhotoUpload from "./PhotoUpload";
 import SuccessScreen from "./SuccessScreen";
 import { indianStates, educationLevels } from "@/data/indianStates";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// All fields are now mandatory
 const formSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
   mobile: z
     .string()
     .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
-  email: z.string().email("Enter a valid email").optional().or(z.literal("")),
-  aadhaar: z
-    .string()
-    .regex(/^\d{12}$/, "Aadhaar must be 12 digits")
-    .optional()
-    .or(z.literal("")),
+  email: z.string().email("Enter a valid email"),
+  aadhaar: z.string().regex(/^\d{12}$/, "Aadhaar must be 12 digits"),
   fullAddress: z.string().min(10, "Please enter your complete address"),
   city: z.string().min(2, "City is required"),
   district: z.string().min(2, "District is required"),
@@ -55,7 +53,7 @@ const formSchema = z.object({
   locationLink: z.string().optional(),
   hasVehicle: z.boolean(),
   vehicleTypes: z.array(z.string()).optional(),
-  education: z.string().optional(),
+  education: z.string().min(1, "Please select your education level"),
   declaration: z.literal(true, {
     errorMap: () => ({ message: "You must accept the declaration" }),
   }),
@@ -118,20 +116,83 @@ const RegistrationForm = () => {
     }
   };
 
+  const uploadPhoto = async (file: File, applicationId: string): Promise<string | null> => {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${applicationId}.${fileExt}`;
+    const filePath = `photos/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("member-photos")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from("member-photos")
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  };
+
   const onSubmit = async (data: FormData) => {
+    if (!photo) {
+      toast.error("Please upload your passport size photo");
+      return;
+    }
+
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    const appId = generateApplicationId();
-    setApplicationId(appId);
-    setSubmittedName(data.fullName);
-    setSubmitted(true);
-    setIsSubmitting(false);
-    
-    console.log("Form submitted:", { ...data, photo, applicationId: appId });
-    toast.success("Registration submitted successfully!");
+    try {
+      const appId = generateApplicationId();
+      
+      // Upload photo
+      const photoUrl = await uploadPhoto(photo, appId);
+      
+      if (!photoUrl) {
+        toast.error("Failed to upload photo. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Insert registration data
+      const { error } = await supabase.from("registrations").insert({
+        full_name: data.fullName,
+        mobile: data.mobile,
+        email: data.email,
+        aadhaar: data.aadhaar,
+        photo_url: photoUrl,
+        full_address: data.fullAddress,
+        city: data.city,
+        district: data.district,
+        state: data.state,
+        pincode: data.pincode,
+        location_link: data.locationLink || null,
+        has_vehicle: data.hasVehicle,
+        vehicle_types: data.hasVehicle ? data.vehicleTypes : null,
+        education: data.education,
+        application_id: appId,
+      });
+
+      if (error) {
+        console.error("Registration error:", error);
+        toast.error("Failed to submit registration. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      setApplicationId(appId);
+      setSubmittedName(data.fullName);
+      setSubmitted(true);
+      toast.success("Registration submitted successfully!");
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -203,7 +264,9 @@ const RegistrationForm = () => {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email ID (Optional)</FormLabel>
+                <FormLabel>
+                  Email ID <span className="text-destructive">*</span>
+                </FormLabel>
                 <FormControl>
                   <Input
                     type="email"
@@ -217,14 +280,16 @@ const RegistrationForm = () => {
             )}
           />
 
-          <PhotoUpload value={photo} onChange={setPhoto} />
+          <PhotoUpload value={photo} onChange={setPhoto} required />
 
           <FormField
             control={form.control}
             name="aadhaar"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Aadhaar Number (Optional)</FormLabel>
+                <FormLabel>
+                  Aadhaar Number <span className="text-destructive">*</span>
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="12-digit Aadhaar number"
@@ -388,8 +453,8 @@ const RegistrationForm = () => {
           </div>
         </FormSection>
 
-        {/* Optional Information */}
-        <FormSection title="Optional Information" icon={Car}>
+        {/* Additional Information */}
+        <FormSection title="Additional Information" icon={Car}>
           <FormField
             control={form.control}
             name="hasVehicle"
@@ -460,7 +525,9 @@ const RegistrationForm = () => {
             name="education"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Education Level</FormLabel>
+                <FormLabel>
+                  Education Level <span className="text-destructive">*</span>
+                </FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}

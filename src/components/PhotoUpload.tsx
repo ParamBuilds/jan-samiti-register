@@ -6,9 +6,10 @@ interface PhotoUploadProps {
   value: File | null;
   onChange: (file: File | null) => void;
   error?: string;
+  required?: boolean;
 }
 
-const PhotoUpload = ({ value, onChange, error }: PhotoUploadProps) => {
+const PhotoUpload = ({ value, onChange, error, required }: PhotoUploadProps) => {
   const [preview, setPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +44,7 @@ const PhotoUpload = ({ value, onChange, error }: PhotoUploadProps) => {
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium text-foreground">
-        Passport Size Photo
+        Passport Size Photo {required && <span className="text-destructive">*</span>}
       </label>
       
       {preview ? (
