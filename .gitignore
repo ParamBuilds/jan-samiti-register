@@ -13,8 +13,6 @@ dist
 dist-ssr
 *.local
 
-# 🔥 IMPORTANT FOR CLOUDFLARE
-package-lock.json
 
 # Editor directories and files
 .vscode/*
