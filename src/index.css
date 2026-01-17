@@ -8,6 +8,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 @layer base {
   /* your base styles */
 }
