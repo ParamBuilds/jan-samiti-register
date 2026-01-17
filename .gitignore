@@ -1,3 +1,5 @@
+Fix: commit package-lock.json for Cloudflare Pages
+
 # Logs
 logs
 *.log
