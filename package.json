@@ -2,8 +2,8 @@
   "name": "jan-samiti-register",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "npm@10.9.2",
   "type": "module",
+  "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
