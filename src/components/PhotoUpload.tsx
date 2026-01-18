@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Camera, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

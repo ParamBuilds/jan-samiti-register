@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import {
   FileCheck,
   Loader2,
   MapPinned,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,11 +46,21 @@ const formSchema = z.object({
     .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
   email: z.string().email("Enter a valid email"),
   aadhaar: z.string().regex(/^\d{12}$/, "Aadhaar must be 12 digits"),
-  fullAddress: z.string().min(10, "Please enter your complete address"),
-  city: z.string().min(2, "City is required"),
-  district: z.string().min(2, "District is required"),
-  state: z.string().min(1, "Please select a state"),
-  pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  // Present Address
+  presentAddress: z.string().min(10, "Please enter your complete present address"),
+  presentCity: z.string().min(2, "City is required"),
+  presentDistrict: z.string().min(2, "District is required"),
+  presentState: z.string().min(1, "Please select a state"),
+  presentPincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  // Same as present
+  sameAsPresent: z.boolean(),
+  // Permanent Address
+  permanentAddress: z.string().optional(),
+  permanentCity: z.string().optional(),
+  permanentDistrict: z.string().optional(),
+  permanentState: z.string().optional(),
+  permanentPincode: z.string().optional(),
+  // Other fields
   locationLink: z.string().optional(),
   hasVehicle: z.boolean(),
   vehicleTypes: z.array(z.string()).optional(),
@@ -57,12 +68,25 @@ const formSchema = z.object({
   declaration: z.literal(true, {
     errorMap: () => ({ message: "You must accept the declaration" }),
   }),
+}).refine((data) => {
+  if (!data.sameAsPresent) {
+    return data.permanentAddress && data.permanentAddress.length >= 10 &&
+           data.permanentCity && data.permanentCity.length >= 2 &&
+           data.permanentDistrict && data.permanentDistrict.length >= 2 &&
+           data.permanentState && data.permanentState.length >= 1 &&
+           data.permanentPincode && /^\d{6}$/.test(data.permanentPincode);
+  }
+  return true;
+}, {
+  message: "Please fill all permanent address fields",
+  path: ["permanentAddress"],
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 const RegistrationForm = () => {
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [applicationId, setApplicationId] = useState("");
@@ -75,11 +99,17 @@ const RegistrationForm = () => {
       mobile: "",
       email: "",
       aadhaar: "",
-      fullAddress: "",
-      city: "",
-      district: "",
-      state: "",
-      pincode: "",
+      presentAddress: "",
+      presentCity: "",
+      presentDistrict: "",
+      presentState: "",
+      presentPincode: "",
+      sameAsPresent: false,
+      permanentAddress: "",
+      permanentCity: "",
+      permanentDistrict: "",
+      permanentState: "",
+      permanentPincode: "",
       locationLink: "",
       hasVehicle: false,
       vehicleTypes: [],
@@ -89,6 +119,25 @@ const RegistrationForm = () => {
   });
 
   const hasVehicle = form.watch("hasVehicle");
+  const sameAsPresent = form.watch("sameAsPresent");
+  
+  // Watch present address fields for copying
+  const presentAddress = form.watch("presentAddress");
+  const presentCity = form.watch("presentCity");
+  const presentDistrict = form.watch("presentDistrict");
+  const presentState = form.watch("presentState");
+  const presentPincode = form.watch("presentPincode");
+
+  // Auto-copy present address to permanent when checkbox is checked
+  useEffect(() => {
+    if (sameAsPresent) {
+      form.setValue("permanentAddress", presentAddress);
+      form.setValue("permanentCity", presentCity);
+      form.setValue("permanentDistrict", presentDistrict);
+      form.setValue("permanentState", presentState);
+      form.setValue("permanentPincode", presentPincode);
+    }
+  }, [sameAsPresent, presentAddress, presentCity, presentDistrict, presentState, presentPincode, form]);
 
   const generateApplicationId = () => {
     const prefix = "JJSS";
@@ -139,9 +188,11 @@ const RegistrationForm = () => {
 
   const onSubmit = async (data: FormData) => {
     if (!photo) {
+      setPhotoError("Please upload your passport size photo");
       toast.error("Please upload your passport size photo");
       return;
     }
+    setPhotoError(null);
 
     setIsSubmitting(true);
     
@@ -157,6 +208,13 @@ const RegistrationForm = () => {
         return;
       }
 
+      // Get permanent address values
+      const permAddress = data.sameAsPresent ? data.presentAddress : data.permanentAddress;
+      const permCity = data.sameAsPresent ? data.presentCity : data.permanentCity;
+      const permDistrict = data.sameAsPresent ? data.presentDistrict : data.permanentDistrict;
+      const permState = data.sameAsPresent ? data.presentState : data.permanentState;
+      const permPincode = data.sameAsPresent ? data.presentPincode : data.permanentPincode;
+
       // Insert registration data
       const { error } = await supabase.from("registrations").insert({
         full_name: data.fullName,
@@ -164,11 +222,17 @@ const RegistrationForm = () => {
         email: data.email,
         aadhaar: data.aadhaar,
         photo_url: photoUrl,
-        full_address: data.fullAddress,
-        city: data.city,
-        district: data.district,
-        state: data.state,
-        pincode: data.pincode,
+        present_address: data.presentAddress,
+        present_city: data.presentCity,
+        present_district: data.presentDistrict,
+        present_state: data.presentState,
+        present_pincode: data.presentPincode,
+        permanent_address: permAddress,
+        permanent_city: permCity,
+        permanent_district: permDistrict,
+        permanent_state: permState,
+        permanent_pincode: permPincode,
+        same_as_present: data.sameAsPresent,
         location_link: data.locationLink || null,
         has_vehicle: data.hasVehicle,
         vehicle_types: data.hasVehicle ? data.vehicleTypes : null,
@@ -198,6 +262,7 @@ const RegistrationForm = () => {
   const handleReset = () => {
     form.reset();
     setPhoto(null);
+    setPhotoError(null);
     setSubmitted(false);
     setApplicationId("");
     setSubmittedName("");
@@ -212,6 +277,8 @@ const RegistrationForm = () => {
       />
     );
   }
+
+  const vehicleOptions = ["Two Wheeler", "Four Wheeler", "Other"];
 
   return (
     <Form {...form}>
@@ -280,7 +347,15 @@ const RegistrationForm = () => {
             )}
           />
 
-          <PhotoUpload value={photo} onChange={setPhoto} required />
+          <PhotoUpload 
+            value={photo} 
+            onChange={(file) => {
+              setPhoto(file);
+              if (file) setPhotoError(null);
+            }} 
+            error={photoError || undefined}
+            required 
+          />
 
           <FormField
             control={form.control}
@@ -304,11 +379,11 @@ const RegistrationForm = () => {
           />
         </FormSection>
 
-        {/* Address Details */}
-        <FormSection title="Address Details" icon={MapPin}>
+        {/* Present Address */}
+        <FormSection title="Present Address" icon={MapPin}>
           <FormField
             control={form.control}
-            name="fullAddress"
+            name="presentAddress"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
@@ -329,7 +404,7 @@ const RegistrationForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="city"
+              name="presentCity"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
@@ -349,7 +424,7 @@ const RegistrationForm = () => {
 
             <FormField
               control={form.control}
-              name="district"
+              name="presentDistrict"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
@@ -371,7 +446,7 @@ const RegistrationForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="state"
+              name="presentState"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
@@ -379,7 +454,7 @@ const RegistrationForm = () => {
                   </FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="input-field">
@@ -401,7 +476,7 @@ const RegistrationForm = () => {
 
             <FormField
               control={form.control}
-              name="pincode"
+              name="presentPincode"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
@@ -453,6 +528,148 @@ const RegistrationForm = () => {
           </div>
         </FormSection>
 
+        {/* Permanent Address */}
+        <FormSection title="Permanent Address" icon={Home}>
+          <FormField
+            control={form.control}
+            name="sameAsPresent"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-lg border border-border p-4 bg-muted/50">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel className="cursor-pointer">
+                    Same as Present Address
+                  </FormLabel>
+                </div>
+              </FormItem>
+            )}
+          />
+
+          {!sameAsPresent && (
+            <div className="space-y-4 animate-fade-in">
+              <FormField
+                control={form.control}
+                name="permanentAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Full Address <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="House No., Street, Landmark..."
+                        className="input-field min-h-[100px] resize-none"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="permanentCity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        City <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="City"
+                          className="input-field"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="permanentDistrict"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        District <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="District"
+                          className="input-field"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="permanentState"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        State <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="input-field">
+                            <SelectValue placeholder="Select State" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-card border border-border">
+                          {indianStates.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="permanentPincode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Pincode <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="6-digit pincode"
+                          className="input-field"
+                          maxLength={6}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+        </FormSection>
+
         {/* Additional Information */}
         <FormSection title="Additional Information" icon={Car}>
           <FormField
@@ -477,47 +694,38 @@ const RegistrationForm = () => {
           />
 
           {hasVehicle && (
-            <FormField
-              control={form.control}
-              name="vehicleTypes"
-              render={() => (
-                <FormItem className="animate-fade-in">
-                  <FormLabel>Vehicle Type</FormLabel>
-                  <div className="flex flex-wrap gap-4">
-                    {["Two Wheeler", "Four Wheeler", "Other"].map((type) => (
-                      <FormField
-                        key={type}
-                        control={form.control}
-                        name="vehicleTypes"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(type)}
-                                onCheckedChange={(checked) => {
-                                  const current = field.value || [];
-                                  if (checked) {
-                                    field.onChange([...current, type]);
-                                  } else {
-                                    field.onChange(
-                                      current.filter((v) => v !== type)
-                                    );
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              {type}
-                            </FormLabel>
-                          </FormItem>
-                        )}
+            <div className="animate-fade-in">
+              <FormLabel className="mb-3 block">Vehicle Type</FormLabel>
+              <div className="flex flex-wrap gap-4">
+                {vehicleOptions.map((type) => {
+                  const currentValues = form.getValues("vehicleTypes") || [];
+                  const isChecked = currentValues.includes(type);
+                  
+                  return (
+                    <div key={type} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`vehicle-${type}`}
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          const current = form.getValues("vehicleTypes") || [];
+                          if (checked) {
+                            form.setValue("vehicleTypes", [...current, type]);
+                          } else {
+                            form.setValue("vehicleTypes", current.filter((v) => v !== type));
+                          }
+                        }}
                       />
-                    ))}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      <label
+                        htmlFor={`vehicle-${type}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {type}
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           <FormField
@@ -530,7 +738,7 @@ const RegistrationForm = () => {
                 </FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger className="input-field">

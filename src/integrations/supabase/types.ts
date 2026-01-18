@@ -39,60 +39,78 @@ export type Database = {
         Row: {
           aadhaar: string
           application_id: string
-          city: string
           created_at: string
-          district: string
           education: string
           email: string
-          full_address: string
           full_name: string
           has_vehicle: boolean
           id: string
           location_link: string | null
           mobile: string
+          permanent_address: string | null
+          permanent_city: string | null
+          permanent_district: string | null
+          permanent_pincode: string | null
+          permanent_state: string | null
           photo_url: string | null
-          pincode: string
-          state: string
+          present_address: string | null
+          present_city: string | null
+          present_district: string | null
+          present_pincode: string | null
+          present_state: string | null
+          same_as_present: boolean | null
           updated_at: string
           vehicle_types: string[] | null
         }
         Insert: {
           aadhaar: string
           application_id: string
-          city: string
           created_at?: string
-          district: string
           education: string
           email: string
-          full_address: string
           full_name: string
           has_vehicle?: boolean
           id?: string
           location_link?: string | null
           mobile: string
+          permanent_address?: string | null
+          permanent_city?: string | null
+          permanent_district?: string | null
+          permanent_pincode?: string | null
+          permanent_state?: string | null
           photo_url?: string | null
-          pincode: string
-          state: string
+          present_address?: string | null
+          present_city?: string | null
+          present_district?: string | null
+          present_pincode?: string | null
+          present_state?: string | null
+          same_as_present?: boolean | null
           updated_at?: string
           vehicle_types?: string[] | null
         }
         Update: {
           aadhaar?: string
           application_id?: string
-          city?: string
           created_at?: string
-          district?: string
           education?: string
           email?: string
-          full_address?: string
           full_name?: string
           has_vehicle?: boolean
           id?: string
           location_link?: string | null
           mobile?: string
+          permanent_address?: string | null
+          permanent_city?: string | null
+          permanent_district?: string | null
+          permanent_pincode?: string | null
+          permanent_state?: string | null
           photo_url?: string | null
-          pincode?: string
-          state?: string
+          present_address?: string | null
+          present_city?: string | null
+          present_district?: string | null
+          present_pincode?: string | null
+          present_state?: string | null
+          same_as_present?: boolean | null
           updated_at?: string
           vehicle_types?: string[] | null
         }

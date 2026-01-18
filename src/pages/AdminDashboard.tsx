@@ -43,11 +43,17 @@ interface Registration {
   email: string;
   aadhaar: string;
   photo_url: string | null;
-  full_address: string;
-  city: string;
-  district: string;
-  state: string;
-  pincode: string;
+  present_address: string | null;
+  present_city: string | null;
+  present_district: string | null;
+  present_state: string | null;
+  present_pincode: string | null;
+  permanent_address: string | null;
+  permanent_city: string | null;
+  permanent_district: string | null;
+  permanent_state: string | null;
+  permanent_pincode: string | null;
+  same_as_present: boolean;
   location_link: string | null;
   has_vehicle: boolean;
   vehicle_types: string[] | null;
@@ -115,12 +121,13 @@ const AdminDashboard = () => {
     }
 
     if (stateFilter && stateFilter !== "all") {
-      filtered = filtered.filter((r) => r.state === stateFilter);
+      filtered = filtered.filter((r) => r.present_state === stateFilter || r.permanent_state === stateFilter);
     }
 
     if (districtFilter) {
       filtered = filtered.filter((r) =>
-        r.district.toLowerCase().includes(districtFilter.toLowerCase())
+        r.present_district?.toLowerCase().includes(districtFilter.toLowerCase()) ||
+        r.permanent_district?.toLowerCase().includes(districtFilter.toLowerCase())
       );
     }
 
@@ -149,11 +156,17 @@ const AdminDashboard = () => {
       "Mobile",
       "Email",
       "Aadhaar",
-      "Full Address",
-      "City",
-      "District",
-      "State",
-      "Pincode",
+      "Present Address",
+      "Present City",
+      "Present District",
+      "Present State",
+      "Present Pincode",
+      "Permanent Address",
+      "Permanent City",
+      "Permanent District",
+      "Permanent State",
+      "Permanent Pincode",
+      "Same As Present",
       "Location Link",
       "Has Vehicle",
       "Vehicle Types",
@@ -170,11 +183,17 @@ const AdminDashboard = () => {
           r.mobile,
           r.email,
           r.aadhaar,
-          `"${r.full_address.replace(/"/g, '""')}"`,
-          r.city,
-          r.district,
-          r.state,
-          r.pincode,
+          `"${(r.present_address || "").replace(/"/g, '""')}"`,
+          r.present_city || "",
+          r.present_district || "",
+          r.present_state || "",
+          r.present_pincode || "",
+          `"${(r.permanent_address || "").replace(/"/g, '""')}"`,
+          r.permanent_city || "",
+          r.permanent_district || "",
+          r.permanent_state || "",
+          r.permanent_pincode || "",
+          r.same_as_present ? "Yes" : "No",
           r.location_link || "",
           r.has_vehicle ? "Yes" : "No",
           r.vehicle_types?.join("; ") || "",
@@ -264,7 +283,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Set(registrations.map((r) => r.state)).size}
+                {new Set(registrations.map((r) => r.present_state).filter(Boolean)).size}
               </div>
             </CardContent>
           </Card>
@@ -356,7 +375,7 @@ const AdminDashboard = () => {
                       <TableHead>Application ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Mobile</TableHead>
-                      <TableHead>State</TableHead>
+                      <TableHead>Present State</TableHead>
                       <TableHead>District</TableHead>
                       <TableHead>Vehicle</TableHead>
                       <TableHead>Education</TableHead>
@@ -386,15 +405,17 @@ const AdminDashboard = () => {
                           {reg.full_name}
                         </TableCell>
                         <TableCell>{reg.mobile}</TableCell>
-                        <TableCell>{reg.state}</TableCell>
-                        <TableCell>{reg.district}</TableCell>
+                        <TableCell>{reg.present_state || "-"}</TableCell>
+                        <TableCell>{reg.present_district || "-"}</TableCell>
                         <TableCell>
                           {reg.has_vehicle ? (
-                            <Badge variant="default" className="bg-success">
+                            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-success text-success-foreground">
                               Yes
-                            </Badge>
+                            </span>
                           ) : (
-                            <Badge variant="secondary">No</Badge>
+                            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-secondary text-secondary-foreground">
+                              No
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>{reg.education}</TableCell>
